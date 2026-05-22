@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>布偶貓領養 Checklist 產生器</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --cream: #F5F0E8;
+    --warm-white: #FDFAF5;
+    --ink: #1C1810;
+    --muted: #7A6F5E;
+    --accent: #C4793A;
+    --soft: #E8DFD0;
+    --line: #D5CBBA;
+    --phase1: #C4793A;
+    --phase2: #7A8C6E;
+    --phase3: #6B7FA3;
+    --danger: #B85450;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  .container { max-width: 620px; margin: 0 auto; }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    margin-bottom: 44px;
+  }
+  .header .cat-icon { font-size: 44px; display: block; margin-bottom: 14px; }
+  .header h1 { font-size: 21px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .header p { font-size: 12.5px; color: var(--muted); letter-spacing: 0.04em; line-height: 1.7; }
+
+  /* ── STEP INDICATOR ── */
+  .steps {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 36px;
+    align-items: center;
+  }
+  .step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--line);
+    transition: all 0.3s ease;
+  }
+  .step-dot.active { background: var(--accent); transform: scale(1.3); }
+  .step-dot.done { background: var(--phase2); }
+
+  /* ── SURVEY ── */
+  #survey { animation: fadeIn 0.35s ease; }
+
+  .q-block {
+    background: var(--warm-white);
+    border-radius: 12px;
+    padding: 24px 22px;
+    margin-bottom: 16px;
+    border: 1px solid var(--line);
+    transition: border-color 0.2s;
+  }
+  .q-block.answered { border-color: var(--phase2); }
+
+  .q-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .q-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .options { display: flex; flex-direction: column; gap: 8px; }
+
+  .opt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    border: 1.5px solid var(--line);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: var(--cream);
+    font-size: 13.5px;
+    color: var(--ink);
+    user-select: none;
+  }
+  .opt:hover { border-color: var(--accent); background: #FFF8F2; }
+  .opt.selected {
+    border-color: var(--accent);
+    background: #FFF3E8;
+    color: var(--ink);
+  }
+  .opt .opt-radio {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .opt.selected .opt-radio {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .opt.selected .opt-radio::after {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: white;
+  }
+  .opt .opt-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .opt-inner { flex: 1; }
+
+  /* Generate button */
+  .gen-btn {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 15px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .gen-btn.ready { opacity: 1; pointer-events: auto; }
+  .gen-btn.ready:hover { background: #B5692A; transform: translateY(-1px); }
+
+  /* ── CHECKLIST ── */
+  #checklist { display: none; animation: fadeIn 0.4s ease; }
+
+  .result-header {
+    text-align: center;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .result-header h2 { font-size: 18px; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .result-header p { font-size: 12px; color: var(--muted); line-height: 1.7; }
+
+  /* progress */
+  .prog-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .prog-wrap { background: var(--soft); border-radius: 20px; height: 4px; overflow: hidden; margin-bottom: 32px; }
+  .prog-bar { height: 100%; background: linear-gradient(90deg, var(--phase1), var(--phase2), var(--phase3)); border-radius: 20px; transition: width 0.3s ease; width: 0%; }
+
+  /* phase */
+  .phase { margin-bottom: 32px; }
+  .phase-hd {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .phase-num {
+    font-family: 'DM Mono', monospace; font-size: 11px; color: white;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .phase-info { flex: 1; }
+  .phase-info h3 { font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .phase-info span { font-size: 11px; color: var(--muted); }
+  .phase-tag {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    padding: 2px 8px; border-radius: 20px; border: 1px solid;
+    letter-spacing: 0.04em;
+  }
+
+  .items { display: flex; flex-direction: column; gap: 4px; }
+  .item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; background: var(--warm-white);
+    border-radius: 8px; border: 1px solid transparent;
+    cursor: pointer; transition: all 0.18s ease; user-select: none;
+  }
+  .item:hover { border-color: var(--line); background: #FFFDF9; }
+  .item.checked { background: var(--soft); border-color: var(--line); opacity: 0.7; }
+  .item.checked .item-text { text-decoration: line-through; color: var(--muted); }
+  .chkbox {
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 1.5px solid var(--line); flex-shrink: 0; margin-top: 2px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease; background: white;
+  }
+  .item.checked .chkbox { background: var(--pc); border-color: var(--pc); }
+  .item.checked .chkbox::after { content: '✓'; font-size: 11px; color: white; font-weight: 700; }
+  .item-text { font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+  .item-note { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; font-style: italic; }
+
+  /* warning items */
+  .item.warn { border-left: 3px solid var(--danger); }
+  .item.warn .item-text { color: var(--danger); }
+
+  /* final note */
+  .final-note {
+    margin-top: 36px; padding: 18px 20px;
+    background: var(--warm-white);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+  }
+  .final-note p { font-size: 13px; color: var(--muted); line-height: 1.8; }
+  .final-note strong { color: var(--ink); }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 24px; }
+  .back-btn, .reset-btn {
+    flex: 1; padding: 11px;
+    font-family: 'Noto Serif TC', serif; font-size: 12px;
+    border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .back-btn { background: none; border: 1px solid var(--line); color: var(--muted); }
+  .back-btn:hover { border-color: var(--muted); color: var(--ink); }
+  .reset-btn { background: none; border: 1px solid var(--line); color: var(--muted); }
+  .reset-btn:hover { border-color: var(--muted); color: var(--ink); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* color utils */
+  .c1 { --pc: var(--phase1); }
+  .c2 { --pc: var(--phase2); }
+  .c3 { --pc: var(--phase3); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <span class="cat-icon">🐾</span>
+    <h1>布偶貓領養評估工具</h1>
+    <p>回答五個問題，產生專屬你的現場評估 Checklist</p>
+  </div>
+
+  <div class="steps" id="steps">
+    <div class="step-dot active" id="sd0"></div>
+    <div class="step-dot" id="sd1"></div>
+    <div class="step-dot" id="sd2"></div>
+    <div class="step-dot" id="sd3"></div>
+    <div class="step-dot" id="sd4"></div>
+  </div>
+
+  <!-- SURVEY -->
+  <div id="survey">
+
+    <!-- Q1 在家時間 -->
+    <div class="q-block" id="qb0">
+      <div class="q-label">問題 01 / 05</div>
+      <div class="q-text">你平均每天在家的時間大約是？</div>
+      <div class="options">
+        <div class="opt" onclick="pick(0, 'short', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>少於 8 小時</div>
+            <div class="opt-note">幾乎整天在外，貓獨處時間長</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(0, 'mid', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>8–14 小時</div>
+            <div class="opt-note">上班族典型作息，晚上陪伴</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(0, 'long', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>14 小時以上</div>
+            <div class="opt-note">居家工作或大部分時間在家</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q2 互動偏好 -->
+    <div class="q-block" id="qb1">
+      <div class="q-label">問題 02 / 05</div>
+      <div class="q-text">你希望貓咪跟你的互動方式是？</div>
+      <div class="options">
+        <div class="opt" onclick="pick(1, 'clingy', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>很黏人，主動撒嬌找我</div>
+            <div class="opt-note">喜歡被貓一直跟著、討抱</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(1, 'balanced', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>我停下來時在旁邊陪著就好</div>
+            <div class="opt-note">不需要一直互動，但希望有存在感</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(1, 'independent', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>獨立自主，偶爾互動就夠</div>
+            <div class="opt-note">不喜歡被黏，貓有自己的生活</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q3 預算 -->
+    <div class="q-block" id="qb2">
+      <div class="q-label">問題 03 / 05</div>
+      <div class="q-text">每月願意花在貓咪身上的預算大約是？</div>
+      <div class="options">
+        <div class="opt" onclick="pick(2, 'low', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>3,000 元以下</div>
+            <div class="opt-note">基本飼料貓砂，減少非必要花費</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(2, 'mid', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>3,000–6,000 元</div>
+            <div class="opt-note">中高品質飼糧，年度健檢可負擔</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(2, 'high', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>6,000 元以上</div>
+            <div class="opt-note">願意考慮保險、高級飼料、多隻</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q4 養貓經驗 -->
+    <div class="q-block" id="qb3">
+      <div class="q-label">問題 04 / 05</div>
+      <div class="q-text">你有養貓的經驗嗎？</div>
+      <div class="options">
+        <div class="opt" onclick="pick(3, 'none', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>完全沒有</div>
+            <div class="opt-note">第一次養貓</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(3, 'some', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>有一些</div>
+            <div class="opt-note">養過貓或長期接觸過</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(3, 'exp', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>有豐富經驗</div>
+            <div class="opt-note">養過多隻或多年經驗</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q5 養多隻 -->
+    <div class="q-block" id="qb4">
+      <div class="q-label">問題 05 / 05</div>
+      <div class="q-text">你有考慮一次領養兩隻以上嗎？</div>
+      <div class="options">
+        <div class="opt" onclick="pick(4, 'one', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>只打算養一隻</div>
+            <div class="opt-note"></div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(4, 'maybe', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>還在考慮</div>
+            <div class="opt-note">想聽建議再決定</div>
+          </div>
+        </div>
+        <div class="opt" onclick="pick(4, 'multi', this)">
+          <div class="opt-radio"></div>
+          <div class="opt-inner">
+            <div>確定養兩隻以上</div>
+            <div class="opt-note"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="gen-btn" id="gen-btn" onclick="generate()">產生我的 Checklist →</button>
+  </div>
+
+  <!-- CHECKLIST -->
+  <div id="checklist">
+    <div class="result-header">
+      <h2>你的專屬領養 Checklist</h2>
+      <p id="result-summary"></p>
+    </div>
+
+    <div class="prog-label">
+      <span>完成進度</span>
+      <span id="prog-text">0 / 0</span>
+    </div>
+    <div class="prog-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+
+    <div id="cl-body"></div>
+
+    <div class="final-note" id="final-note"></div>
+
+    <div class="btn-row">
+      <button class="back-btn" onclick="goBack()">← 重新填寫</button>
+      <button class="reset-btn" onclick="resetChecks()">清除所有勾選</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const answers = {};
+
+function pick(qIdx, val, el) {
+  // deselect siblings
+  el.closest('.options').querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  answers[qIdx] = val;
+  el.closest('.q-block').classList.add('answered');
+
+  // update step dots
+  document.getElementById('sd' + qIdx).classList.add('done');
+  document.getElementById('sd' + qIdx).classList.remove('active');
+  if (qIdx + 1 < 5) {
+    document.getElementById('sd' + (qIdx + 1)).classList.add('active');
+  }
+
+  // enable button if all answered
+  if (Object.keys(answers).length === 5) {
+    document.getElementById('gen-btn').classList.add('ready');
+  }
+}
+
+function generate() {
+  const a = answers;
+  const sections = [];
+
+  // ── PHASE 1: 現實條件（固定，全部都要看）──
+  const phase1 = {
+    color: 'var(--phase1)', tag: 'MUST', label: '現實條件確認', sub: '排除根本不合適的個體，優先看',
+    items: [
+      { text: '眼睛清澈，無大量分泌物或混濁', note: '眼屎少量正常；大量黃綠色分泌物可能有感染' },
+      { text: '毛色有光澤、不過度打結', note: '布偶貓毛量大，若照顧不良會嚴重糾結' },
+      { text: '體態不過瘦、脊骨不明顯突出', note: '可輕觸確認，健康貓肋骨可感覺但不明顯' },
+      { text: '已接種基礎疫苗並有紀錄', note: '向領養單位索取健康手冊，確認三合一以上' },
+      { text: '無明顯異常步態或抖動', note: '走動時觀察，排除神經或關節問題' },
+    ]
+  };
+
+  // 根據養貓經驗加項目
+  if (a[3] === 'none') {
+    phase1.items.push({ text: '詢問該隻貓目前的飼料品牌與餵食習慣', note: '新手需維持原有飲食至少 2 週再漸進換糧，避免腸胃不適', warn: false });
+  }
+  sections.push(phase1);
+
+  // ── PHASE 2: 需求契合度──
+  const p2items = [];
+
+  // 在家時間相關
+  if (a[0] === 'short' || a[0] === 'mid') {
+    p2items.push({ text: '獨立性測試：你坐著不理牠 5 分鐘', note: '✅ 自己玩或睡覺  ／  ⚠️ 持續叫喚、抓人、嚎叫' });
+    p2items.push({ text: '確認無分離焦慮跡象：放下後不哭鬧', note: '長時間獨處前提是貓的情緒穩定' });
+  }
+  if (a[0] === 'long') {
+    p2items.push({ text: '測試活動量是否與你的居家步調相符', note: '你長時間在家，過度活潑的貓會一直找你互動' });
+  }
+
+  // 互動偏好相關
+  if (a[1] === 'clingy') {
+    p2items.push({ text: '主動靠近測試：輕拍腿或地板，觀察反應', note: '✅ 主動走來趴下、呼嚕  ／  ⚠️ 完全無反應' });
+    p2items.push({ text: '確認該隻有主動尋求撫摸的行為', note: '可觀察牠是否主動把頭塞進你手裡' });
+  }
+  if (a[1] === 'balanced') {
+    p2items.push({ text: '陪伴意願測試：拍拍旁邊位置，看是否過來', note: '✅ 慢慢走來靜靜待著  ／  ⚠️ 走開或一直鬧' });
+    p2items.push({ text: '聲音反應：對你說話時是否轉頭或靠近', note: '有興趣但不吵鬧，符合靜陪型需求' });
+  }
+  if (a[1] === 'independent') {
+    p2items.push({ text: '測試該隻是否有自己探索環境的興趣', note: '願意自主活動代表不會對你過度依賴' });
+    p2items.push({ text: '確認被撫摸時不會立刻跑開，但也不強求', note: '偶爾互動即滿足的個性' });
+  }
+
+  // 預算相關
+  if (a[2] === 'low') {
+    p2items.push({ text: '確認領養費用是否含基礎醫療（結紮、驅蟲）', note: '預算有限時，這些若已處理可大幅降低初期費用' });
+    p2items.push({ text: '詢問目前吃的飼料品牌與價位', note: '換糧有風險，若品質尚可可考慮繼續使用' });
+  }
+  if (a[2] === 'mid' || a[2] === 'high') {
+    p2items.push({ text: '詢問是否有既有健康問題需要持續追蹤', note: '有慢性病的貓費用可能超出預期' });
+  }
+
+  // 養貓經驗相關
+  if (a[3] === 'none') {
+    p2items.push({ text: '觀察該隻貓對陌生人的容忍度', note: '新手主人建議選親人度高、不易受驚嚇的個體' });
+    p2items.push({ text: '確認貓咪已習慣被梳毛、觸摸耳朵', note: '布偶貓毛量大，需定期梳理；新手需選配合度高的' });
+  }
+  if (a[3] === 'exp') {
+    p2items.push({ text: '可考慮詢問較特殊或需要額外照顧的個體', note: '有經驗的飼主可處理害羞、慢熱等較複雜性格' });
+  }
+
+  sections.push({
+    color: 'var(--phase2)', tag: 'FILTER', label: '需求契合度評估', sub: '根據你的條件篩選合適個體',
+    items: p2items
+  });
+
+  // ── PHASE 3: 緣分訊號──
+  const p3items = [
+    { text: '進場後第一個主動走向你', note: '陌生環境中主動靠近，是強烈親和訊號' },
+    { text: '你走動時跟著你移動', note: '放下後仍跟著，代表對你有特別興趣' },
+    { text: '對你慢眨眼', note: '貓對信任的對象才會慢眨眼，初次出現是罕見緣分' },
+    { text: '抱起後把頭靠向你胸口或肩膀', note: '主動貼靠而非往外看或掙扎' },
+    { text: '你心裡有「就是牠」的感覺', note: '前兩階段理性篩完後，相信這個直覺' },
+  ];
+
+  if (a[1] === 'clingy') {
+    p3items.splice(1, 0, { text: '對著你發出呼嚕聲，且在你手邊磨蹭', note: '磨蹭是貓在標記「你是我的人」的行為' });
+  }
+
+  sections.push({
+    color: 'var(--phase3)', tag: 'FEEL', label: '緣分訊號觀察', sub: '通過前兩階段後，找那隻選了你的',
+    items: p3items
+  });
+
+  // ── 多隻建議 ──
+  if (a[0] === 'short' || a[0] === 'mid') {
+    if (a[4] === 'maybe' || a[4] === 'multi') {
+      const p4items = [
+        { text: '觀察兩隻候選貓之間是否已有互動或同睡', note: '本來就熟識的兩隻，同領養磨合期最短' },
+        { text: '確認兩隻個性互補（一隻較主動、一隻較安靜）', note: '避免兩隻都高需求，互相競爭你的注意力' },
+        { text: '確認空間能放下兩套貓砂盆（建議貓數+1）', note: '兩隻貓至少需要三個貓砂盆' },
+      ];
+      sections.push({
+        color: '#9B7BB8', tag: 'BONUS', label: '多隻領養評估', sub: '你在家時間有限，兩隻互陪是值得考慮的選項',
+        items: p4items
+      });
+    }
+  }
+
+  // ── 建立 HTML ──
+  let totalItems = 0;
+  let html = '';
+  sections.forEach((sec, si) => {
+    const ci = si < 3 ? ['c1','c2','c3'][si] : 'c1';
+    html += `<div class="phase ${ci}" style="--pc:${sec.color}">`;
+    html += `<div class="phase-hd">
+      <div class="phase-num" style="background:${sec.color}">${String(si+1).padStart(2,'0')}</div>
+      <div class="phase-info"><h3>${sec.label}</h3><span>${sec.sub}</span></div>
+      <div class="phase-tag" style="color:${sec.color};border-color:${sec.color}">${sec.tag}</div>
+    </div><div class="items">`;
+    sec.items.forEach(item => {
+      totalItems++;
+      const warnClass = item.warn === true ? ' warn' : '';
+      html += `<div class="item${warnClass}" onclick="toggleItem(this)" style="--pc:${sec.color}">
+        <div class="chkbox"></div>
+        <div class="item-inner">
+          <div class="item-text">${item.text}</div>
+          ${item.note ? `<div class="item-note">${item.note}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  document.getElementById('cl-body').innerHTML = html;
+  document.getElementById('prog-text').textContent = '0 / ' + totalItems;
+  window._total = totalItems;
+
+  // summary text
+  const homeMap = { short: '在家少於 8 小時', mid: '上班族作息', long: '大部分時間在家' };
+  const intMap = { clingy: '黏人型', balanced: '靜陪型', independent: '獨立型' };
+  document.getElementById('result-summary').textContent =
+    `根據你的條件（${homeMap[a[0]]}・${intMap[a[1]]}偏好）產生，共 ${totalItems} 個評估項目`;
+
+  // final note
+  let note = '<p>';
+  note += '<strong>使用方式：</strong>依階段順序評估。第一階段是硬性條件，不過關直接跳過。';
+  if (a[0] === 'short' || a[0] === 'mid') note += '你每天獨處時間長，<strong>獨立性測試</strong>要特別重視。';
+  if (a[4] === 'one') note += ' 只養一隻的話，記得每晚回家給牠一段專注互動的時間。';
+  if (a[3] === 'none') note += ' 第一次養貓，建議優先選<strong>親人度高、不易受驚嚇</strong>的個體，降低磨合難度。';
+  note += ' 第三階段通過最多緣分訊號的那隻，就是答案了。</p>';
+  document.getElementById('final-note').innerHTML = note;
+
+  // switch views
+  document.getElementById('survey').style.display = 'none';
+  document.getElementById('checklist').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleItem(el) {
+  el.classList.toggle('checked');
+  const checked = document.querySelectorAll('#checklist .item.checked').length;
+  const total = window._total || 0;
+  document.getElementById('prog-bar').style.width = (checked / total * 100) + '%';
+  document.getElementById('prog-text').textContent = checked + ' / ' + total;
+}
+
+function resetChecks() {
+  document.querySelectorAll('#checklist .item.checked').forEach(el => el.classList.remove('checked'));
+  document.getElementById('prog-bar').style.width = '0%';
+  document.getElementById('prog-text').textContent = '0 / ' + (window._total || 0);
+}
+
+function goBack() {
+  document.getElementById('checklist').style.display = 'none';
+  document.getElementById('survey').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
